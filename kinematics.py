@@ -3,83 +3,71 @@ import numpy as np
 import tqdm
 import time
 
+class KinematicsSolver:
+    """KinematicsSolver class
+    Class that contains several solving methods for manipulator kinematics.
+    """
+    def __init__(self, transformation: sp.Expr, jacobian: sp.Expr=None):
+        """solver class for the forward and inverse kinematics
 
-class Manipulator:
-    def __init__(self, qmin = None, qmax = None, qtypes = None):
-        self.q = None # Generate joints from num_joints
-        
-        # Joint types
-        # If none given, assume all Revolute 'R'
-        # Options: Free 'F' (in 6DoF), Revolute 'R' (1 DoF), Universal 'U' (2 DoF), Prismatic 'P' (1 linear DoF)
-        if qtypes == None:
-            self.qtypes = ['R' for q in self.q]
-        else:
-            self.qtypes = qtypes
-        
-        # Joint limits
-        self.qmin = qmin
-        self.qmax = qmax
-        self.params = None
-        self.kinematics_transformation = None
-        
-    
-    def kinematics(self):
-        # Assign variables
-        # Joint states
-        q1, q2, q3 = sp.symbols('q_1 q_2 q_3', real=True)
-        
-        # Parameters
-        self.params[0], self.params[1], self.params[2] = sp.symbols('L_1 L_2 L_3', real=True, positive=True)
-        
-        # --- FORWARD KINEMATICS DERIVATION ---
-        T_b0 = sp.Matrix([[0, 0, 1, 0],
-                        [1, 0, 0, 0],
-                        [0, 1, 0, 0],
-                        [0, 0, 0, 1]])
+        Args:
+            transformation (Sympy Expr): 4x4 homogeneous transformation matrix describing the 
+                                         end-effector pose in the world frame
+        """
+        self.transformation_matrix = transformation
 
-        T_01 = sp.Matrix([[sp.cos(q1), -sp.sin(q1), 0, 0],
-                        [sp.sin(q1),  sp.cos(q1), 0, 0],
-                        [0, 0, 1, 0],
-                        [0, 0, 0, 1]])
+        self.analytical_jacobian = jacobian
 
-        T_12 = sp.Matrix([[-sp.cos(q2), sp.sin(q2), 0, -self.params[0]],
-                        [0, 0, 1, 0],
-                        [sp.sin(q2), sp.cos(q2), 0, 0],
-                        [0, 0, 0, 1]])
+        self.joint_variables = self.transformation_matrix.free_symbols
+        self.dofs = len(self.joint_variables)
 
-        T_23 = sp.Matrix([[-sp.cos(q3), sp.sin(q3), 0, self.params[1]],
-                        [0, 0, 1, 0],
-                        [sp.sin(q3), sp.cos(q3), 0, 0],
-                        [0, 0, 0, 1]])
+    def __forwardKinematics(self, configuration: list):
+        """Forward kinematics function
 
-        T_3e = sp.Matrix([[0, 0, -1, -self.params[2]],
-                        [0, 1, 0, 0],
-                        [1, 0, 0, 0],
-                        [0, 0, 0, 1]])
+        Args:
+            configuration (list): List of desired joint positions
 
-        self.kinematics_transformation = sp.trigsimp(sp.expand(T_b0*T_01*T_12*T_23*T_3e))
-    
-    def analyseWorkspace(self):
-        # Set start time 
-        start = time.time()
+        Returns:
+            list: List with full pose result
+        """
+        # Check if configuration has same length as joint variables:
+        if len(configuration)!= self.dofs:
+            print("[KINEMATICS SOLVER] Error: Given configuration not same length as number of DOFs")
+            return
 
-        # --- MAIN LOOP ---
-        steps = 20
-        data = np.zeros((3,steps**3))
-        counter = 0
+        joint_commands = zip(self.joint_variables, configuration)
+        result = []
 
-        print("Starting loop")
-        for q1step in tqdm(np.linspace(q1_MIN, q1_MAX, steps)):
-            for q2step in np.linspace(q2_MIN, q2_MAX, steps):
-                for q3step in np.linspace(q3_MIN, q3_MAX, steps):
-                    data[0,counter] = T_be[0,3].subs([(q1, q1step), (q2, q2step), (q3, q3step)])
-                    data[1,counter] = T_be[1,3].subs([(q1, q1step), (q2, q2step), (q3, q3step)])
-                    data[2,counter] = T_be[2,3].subs([(q1, q1step), (q2, q2step), (q3, q3step)])
-                    counter += 1
+        #Linear
+        result[0] = self.transformation_matrix[0,3].subs(joint_commands)
+        result[1] = self.transformation_matrix[1,3].subs(joint_commands)
+        result[2] = self.transformation_matrix[2,3].subs(joint_commands)
 
-        # Set end time
-        end = time.time()
+        # Angular
+        result[3] = sp.atan2(self.transformation_matrix[2,1].subs(joint_commands), self.transformation_matrix[2,2].subs(joint_commands))
+        result[4] = sp.asin(self.transformation_matrix[2,0].subs(joint_commands))
+        result[5] = sp.atan2(self.transformation_matrix[1,0].subs(joint_commands), self.transformation_matrix[0,0].subs(joint_commands))
+        return result
 
-        # Display total elapsed time message
-        time_elapsed = end-start
-        print("Workspace finished calculating in ", time_elapsed, " seconds")
+    def __inverseKinematics(self, pose: list):
+        """Inverse Kinematics function
+
+        Args:
+            pose (list): Desired end-effector pose
+        """
+        # Check if analytical jacobian is provided
+        if self.analytical_jacobian is None:
+            print("[KINEMATICS SOLVER] Error: Please provide the analytical Jacobian")
+            return
+
+        # Implement the inverse kinematics using Newton-Raphson such as in Modern Robotics
+
+
+    def analyseWorkspace(self, space='jointspace'):
+        if space is 'jointspace':
+            # Use forward kinematics
+            print("Workspace analysis in joint space")
+
+        elif space is 'cartesian':
+            # Use inverse kinematics
+            print("Workspace analysis in cartesian space")

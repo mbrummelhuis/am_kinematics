@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 from drone import DroneVisualModel
+#from kinematics import KinematicsSolver
 
 sp.init_printing(use_unicode=True)
 
