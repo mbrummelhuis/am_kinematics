@@ -129,6 +129,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+venv-kinematics/
 
 # Spyder project settings
 .spyderproject
