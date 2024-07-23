@@ -1,9 +1,11 @@
 import sympy as sp
+import numpy as np
 
 from drone import DroneVisualModel
 from kinematics import KinematicsSolver
+from model import Model
 
-def deriveTransformation():
+if __name__ == "__main__":
     # Joint states
     x, y, z, yaw, pitch, roll, q1, q2, q3 = sp.symbols('x_b y_b z_b yaw pitch roll q_1 q_2 q_3', real=True)
 
@@ -42,11 +44,19 @@ def deriveTransformation():
                     [0, 0, 0, 1]])
 
     T_Ie = sp.trigsimp(sp.expand(T_Ib*T_b0*T_01*T_12*T_23*T_3e))
-    
+     
     # Set parameters
     L1_length = 0.11
     L2_length = 0.25
     L3_length = 0.25
     T_Ie = T_Ie.subs([(L1, L1_length), (L2, L2_length), (L3, L3_length)])
-
-    return T_Ie
+    
+    AMparameters = dict({L1:L1_length,
+                         L2:L2_length,
+                         L3:L3_length})
+    
+    AerialManipulator = Model(transformation=T_Ie, variables = (x, y, z, yaw, pitch, roll, q1, q2, q3), parameters=AMparameters)
+    
+    
+    solver = KinematicsSolver(AerialManipulator.transformation, AerialManipulator.AnalyticalJacobian)
+    

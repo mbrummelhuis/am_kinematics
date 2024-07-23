@@ -35,8 +35,8 @@ class DroneVisualModel():
 
         # Plot arms
         ax.plot([self.body_length/2., self.rotor_offset[0][0]], [self.body_width/2., self.rotor_offset[0][1]], 0., color='k', linewidth=3)
-        ax.plot([-self.body_length/2., self.rotor_offset[1][0]], [self.body_width/2., self.rotor_offset[1][1]], 0., color='k', linewidth=3)
-        ax.plot([self.body_length/2., self.rotor_offset[2][0]], [-self.body_width/2., self.rotor_offset[2][1]], 0., color='k', linewidth=3)
+        ax.plot([self.body_length/2., self.rotor_offset[1][0]], [-self.body_width/2., self.rotor_offset[1][1]], 0., color='k', linewidth=3)
+        ax.plot([-self.body_length/2., self.rotor_offset[2][0]], [self.body_width/2., self.rotor_offset[2][1]], 0., color='k', linewidth=3)
         ax.plot([-self.body_length/2., self.rotor_offset[3][0]], [-self.body_width/2., self.rotor_offset[3][1]], 0., color='k', linewidth=3)
 
 
