@@ -1,6 +1,6 @@
 import sympy as sp
 import numpy as np
-import tqdm
+from tqdm import tqdm
 import time
 import itertools
 
@@ -8,12 +8,13 @@ class KinematicsSolver:
     """KinematicsSolver class
     Class that contains several solving methods for manipulator kinematics.
     """
-    def __init__(self, transformation: sp.Expr, jacobian: sp.Expr=None):
+    def __init__(self, transformation: sp.Expr, variables: tuple ,jacobian: sp.Expr=None):
         """solver class for the forward and inverse kinematics
 
         Args:
             transformation (Sympy Expr): 4x4 homogeneous transformation matrix describing the 
                                          end-effector pose in the world frame
+            variables (tuple): Ordered tuple of joint variables
             jacobian (Sympy Expr): 6xN jacobian matrix of the aerial manipulator with N the
                                    total degrees of freedom
         """
@@ -21,7 +22,7 @@ class KinematicsSolver:
 
         self.analytical_jacobian = jacobian
 
-        self.joint_variables = self.transformation_matrix.free_symbols
+        self.joint_variables = variables
         self.dofs = len(self.joint_variables)
         
         self.FKresult = np.empty(6) # For saving results of forward kinematics
@@ -41,7 +42,7 @@ class KinematicsSolver:
             print("[KINEMATICS SOLVER] Error: Given configuration not same length as number of DOFs")
             return
 
-        joint_commands = zip(self.joint_variables, configuration)
+        joint_commands = list(zip(self.joint_variables, configuration))
 
         #Linear
         self.FKresult[0] = self.transformation_matrix[0,3].subs(joint_commands)
@@ -103,30 +104,34 @@ class KinematicsSolver:
         return 0
 
     def analyseWorkspace(self,  limits: np.array, steps: int=10, space: str='jointspace'):
-        if space is 'jointspace':
+        if space == 'jointspace':
             # Use forward kinematics
             print("[KINEMATICS SOLVER] Workspace analysis in joint space using forward kinematics")
 
             # Build configuration space to explore
-            configuration_space = np.empty((self.dofs, steps))
-            
+            configuration_space = np.empty((self.dofs, steps), dtype=float)
+
             for i in range(self.dofs):
                 configuration_space[i,:]= np.linspace(limits[i,0], limits[i,1], steps)
             
             config_combinations = itertools.product(*configuration_space)
-            
+            num_combinations = self.dofs ** steps
+
             # Set start time 
             start = time.time()
 
             # --- MAIN LOOP ---
             # Initialize data array
-            data = np.empty((self.dofs, len(config_combinations)))
+            # Get the lengths of each row
+            data = np.empty((3, num_combinations))
             counter = 0
 
             print("[KINEMATICS SOLVER] Starting loop")
             for configuration in tqdm(config_combinations):
-                self.__forwardKinematics(configuration=configuration)
-                data[:,counter] = self.FKresult
+                float_configuration = tuple(float(x) for x in configuration)
+                self.__forwardKinematics(configuration=float_configuration)
+                data[:,counter] = self.FKresult[0:3]
+                counter += 1
 
             # Set end time
             end = time.time()
@@ -136,7 +141,7 @@ class KinematicsSolver:
             print("[KINEMATICS SOLVER] Workspace finished calculating in ", time_elapsed, " seconds")
             return data
 
-        elif space is 'cartesian':
+        elif space == 'cartesian':
             # Use inverse kinematics
             print("[KINEMATICS SOLVER] Workspace analysis in cartesian space using inverse kinematics")
             
@@ -152,15 +157,15 @@ class KinematicsSolver:
             start = time.time()
             
             # Create data array
-            data = np.empty((7, len(pose_combinations)))
+            data = np.empty((len(pose_combinations), 7))
             counter = 0
             
             print("[KINEMATICS SOLVER] Starting loop")
             for checked_pose in tqdm(pose_combinations):
                 # Check if the pose gets a solution
                 res = self.__inversePoseKinematics(target_pose=checked_pose, initial_guess=np.zeros(self.dofs))
-                data[0:6,counter] = self.IKresult
-                data[6, counter] = res
+                data[counter, 0,6] = self.IKresult
+                data[counter, 6] = res
                 counter+=1
                 
             end = time.time()

@@ -73,9 +73,9 @@ def workspace_analysis_jointspace():
     # Set parameters
     set_params = True
     if set_params:
-        L1_length = 0.11
-        L2_length = 0.25
-        L3_length = 0.25
+        L1_length = 0.110
+        L2_length = 0.311
+        L3_length = 0.273
         T_be = T_be.subs([(L1, L1_length), (L2, L2_length), (L3, L3_length)])
         print("Parameters set")
 
@@ -83,10 +83,10 @@ def workspace_analysis_jointspace():
     start = time.time()
 
     # --- MAIN LOOP ---
-    steps = 10
+    steps = 3
     data = np.zeros((6,steps**3))
     counter = 0
-
+    
     print("Starting loop")
     for q1step in tqdm(np.linspace(q1_MIN, q1_MAX, steps)):
         for q2step in np.linspace(q2_MIN, q2_MAX, steps):
