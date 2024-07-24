@@ -46,9 +46,9 @@ if __name__ == "__main__":
     T_Ie = sp.trigsimp(sp.expand(T_Ib*T_b0*T_01*T_12*T_23*T_3e))
      
     # Set parameters
-    L1_length = 0.11
-    L2_length = 0.25
-    L3_length = 0.25
+    L1_length = 0.110
+    L2_length = 0.311
+    L3_length = 0.273
     T_Ie = T_Ie.subs([(L1, L1_length), (L2, L2_length), (L3, L3_length)])
     
     AMparameters = dict({L1:L1_length,
@@ -56,7 +56,7 @@ if __name__ == "__main__":
                          L3:L3_length})
     
     AerialManipulator = Model(transformation=T_Ie, variables = (x, y, z, yaw, pitch, roll, q1, q2, q3), parameters=AMparameters)
-    
+    AerialManipulator.getAnalyticalJacobian()
     
     solver = KinematicsSolver(AerialManipulator.transformation, AerialManipulator.AnalyticalJacobian)
     
