@@ -20,12 +20,20 @@ q2_MAX = float(1/8*sp.pi)
 q3_MIN = float(-3/4*sp.pi)
 q3_MAX = float(3/4*sp.pi)
 
+# Cartesian limits
+x_MIN = -1.
+x_MAX = 1.
+y_MIN = -1.
+y_MAX = 1.
+z_MIN = -1.
+z_MAX = 1.
+
 # Drone dimensions
 drone_body=(0.35, 0.15, 0.045)
 drone_rotor=(0.2286, 0.245, 0.195)
 
 # Mode
-mode = "jointspace"
+mode = "cartesianposition"
 
 if __name__ == "__main__":
     # Joint states
@@ -85,7 +93,12 @@ if __name__ == "__main__":
                            [q2_MIN, q2_MAX], # q2
                            [q3_MIN, q3_MAX],]) # q3
     
-    data = solver.analyseWorkspace(limits = joint_limits, steps=steps, space=mode)
+    ws_limits=np.array([[x_MIN, x_MAX],
+                        [y_MIN, y_MAX],
+                        [z_MIN, z_MAX]])
+    
+    data = solver.analyseWorkspace(limits = ws_limits, steps=steps, space=mode)
     
     visualise(data, body=drone_body, rotor=drone_rotor, space=mode)
+    
     

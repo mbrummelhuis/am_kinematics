@@ -97,7 +97,7 @@ class KinematicsSolver:
 
         # Initial guess
         if initial_guess is None:
-            initial_guess = np.zeros(self.dofs)
+            initial_guess = np.zeros(self.dofs, dtype=float)
         
         # Newton-Raphson implementation
         # Initialization
@@ -109,8 +109,8 @@ class KinematicsSolver:
 
         # Running the algorithm
         while np.linalg.norm(error) > tolerance:
-            pseudoinverse = evaluated_jacobian.transpose()*((evaluated_jacobian*evaluated_jacobian.transpose()).inv())
-            guess = previous_guess + pseudoinverse*error
+            pseudoinverse = np.array(evaluated_jacobian.pinv().tolist())
+            guess = previous_guess + np.dot(pseudoinverse,error)
 
             self.__forwardPoseKinematics(configuration=guess)
             error = target_pose - self.FKresult
@@ -129,7 +129,7 @@ class KinematicsSolver:
         print(f"[KINEMATICS SOLVER] Achieved pose: {self.FKresult}")
         return 0
     
-    def __inversePositionKinematics(self, target_position: np.array, initial_guess: np.array = None, tolerance: float = 1e-6, max_iterations: int = 10000):
+    def __inversePositionKinematics(self, target_position: np.array, initial_guess: np.array = None, tolerance: float = 1e-3, max_iterations: int = 100):
         """Inverse position kinematics function
 
         Args:
@@ -148,24 +148,24 @@ class KinematicsSolver:
 
         # Initial guess
         if initial_guess is None:
-            initial_guess = np.zeros(self.dofs)
+            initial_guess = np.zeros((self.dofs,1), dtype=float)
         
         # Newton-Raphson implementation
         # Initialization
         self.__forwardPositionKinematics(configuration=initial_guess)
         error = target_position - self.FKresult[0:3]
-        evaluated_jacobian = self.analytical_jacobian[0:3].subs(list(zip(self.joint_variables, initial_guess)))
+        evaluated_jacobian = self.analytical_jacobian[0:3,:].subs(list(zip(self.joint_variables, initial_guess)))
         previous_guess = initial_guess
         counter = 0
 
         # Running the algorithm
         while np.linalg.norm(error) > tolerance:
-            pseudoinverse = evaluated_jacobian.transpose()*((evaluated_jacobian*evaluated_jacobian.transpose()).inv())
-            guess = previous_guess + pseudoinverse*error
+            pseudoinverse = np.array(evaluated_jacobian.pinv().tolist())
+            guess = previous_guess + np.dot(pseudoinverse,error)
 
             self.__forwardPositionKinematics(configuration=guess)
             error = target_position - self.FKresult[0:3]
-            evaluated_jacobian = self.analytical_jacobian[0:3].subs(list(zip(self.joint_variables, guess)))
+            evaluated_jacobian = self.analytical_jacobian[0:3,:].subs(list(zip(self.joint_variables, guess)))
 
             previous_guess = guess
             counter+=1
@@ -201,7 +201,7 @@ class KinematicsSolver:
 
             for i in range(self.dofs):
                 configuration_space[i,:]= np.linspace(limits[i,0], limits[i,1], steps)
-            
+
             config_combinations = itertools.product(*configuration_space)
             num_combinations = self.dofs ** steps
 
@@ -232,13 +232,13 @@ class KinematicsSolver:
         elif space == 'cartesianposition':
             # Use inverse kinematics
             print("[KINEMATICS SOLVER] Workspace analysis in cartesian space using inverse position kinematics")
-            
+
             # Build configuration space to explore
-            configuration_space = np.empty((3, steps))
-            
+            configuration_space = np.empty((3, steps), dtype=float)
+
             for i in range(3):
-                configuration_space[i,:]=np.linspace(limits[i,0], limits[i,1])
-            
+                configuration_space[i,:]=np.linspace(limits[i,0], limits[i,1], steps)
+
             position_combinations = itertools.product(*configuration_space)
             num_combinations = steps ** 3
             
@@ -250,11 +250,12 @@ class KinematicsSolver:
             counter = 0
             
             print("[KINEMATICS SOLVER] Starting loop")
-            for checked_position in tqdm(position_combinations):
+            for position in position_combinations:
                 # Check if the pose gets a solution
+                checked_position = np.array([position[0], position[1], position[2]], dtype=float)
                 res = self.__inversePositionKinematics(target_position=checked_position, initial_guess=np.zeros(self.dofs))
-                data[counter, 0,6] = self.IKresult
-                data[counter, 6] = res
+                data[counter, 0:3] = self.IKresult
+                data[counter, 3] = res
                 counter+=1
                 
             end = time.time()
@@ -268,10 +269,10 @@ class KinematicsSolver:
             print("[KINEMATICS SOLVER] Workspace analysis in cartesian space using inverse pose kinematics")
             
             # Build configuration space to explore
-            configuration_space = np.empty((6, steps))
+            configuration_space = np.empty((6, steps), dtype=float)
             
             for i in range(6):
-                configuration_space[i,:]=np.linspace(limits[i,0], limits[i,1])
+                configuration_space[i,:]=np.linspace(limits[i,0], limits[i,1], steps)
             
             pose_combinations = itertools.product(*configuration_space)
             num_combinations = steps ** 6

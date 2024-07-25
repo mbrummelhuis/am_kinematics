@@ -25,8 +25,8 @@ def visualise(data, body, rotor, space="jointspace"):
         for i in range(len(data)):
             
             data[0:3,i]
-        inws_points = [row[0:3] for row in data if data[6]==1]
-        outws_points = [row[0:3] for row in data if not data[6]==1]
+        inws_points = [row[0:3] for row in data if data[6]==0]
+        outws_points = [row[0:3] for row in data if not data[6]==-1]
 
         fig = plt.figure()
         ax1 = fig.add_subplot(1,1,1, projection='3d')
