@@ -28,8 +28,8 @@ class KinematicsSolver:
         self.FKresult = np.empty(6) # For saving results of forward kinematics
         self.IKresult = np.empty(self.dofs) # For saving results of inverse kinematics
 
-    def __forwardKinematics(self, configuration: np.array):
-        """Forward kinematics function
+    def __forwardPoseKinematics(self, configuration: np.array):
+        """Forward pose kinematics function
 
         Args:
             configuration (Numpy array): List of desired joint positions
@@ -54,12 +54,38 @@ class KinematicsSolver:
         self.FKresult[4] = sp.asin(self.transformation_matrix[2,0].subs(joint_commands))
         self.FKresult[5] = sp.atan2(self.transformation_matrix[1,0].subs(joint_commands), self.transformation_matrix[0,0].subs(joint_commands))
         return 0
-
-    def __inversePoseKinematics(self, target_pose: np.array, initial_guess: np.array = None, tolerance: float = 1e-6, max_iterations: int = 10000):
-        """Inverse Kinematics function
+    
+    def __forwardPositionKinematics(self, configuration: np.array):
+        """Forward position kinematics function
 
         Args:
-            pose (Numpy array): Desired end-effector pose
+            configuration (Numpy array): List of desired joint positions
+
+        Returns:
+            int: 0 in case of succesful termination
+        """
+        # Check if configuration has same length as joint variables:
+        if len(configuration)!= self.dofs:
+            print("[KINEMATICS SOLVER] Error: Given configuration not same length as number of DOFs")
+            return
+
+        joint_commands = list(zip(self.joint_variables, configuration))
+
+        #Linear
+        self.FKresult[0] = self.transformation_matrix[0,3].subs(joint_commands)
+        self.FKresult[1] = self.transformation_matrix[1,3].subs(joint_commands)
+        self.FKresult[2] = self.transformation_matrix[2,3].subs(joint_commands)
+        
+        return 0
+
+    def __inversePoseKinematics(self, target_pose: np.array, initial_guess: np.array = None, tolerance: float = 1e-6, max_iterations: int = 10000):
+        """Inverse full pose kinematics function
+
+        Args:
+            target_pose (np.array): Desired end-effector pose to find joint configuration for
+            initial_guess (np.array): First guess of the joint configuration, a good guess means faster convergence
+            tolerance (float): Value under which the L2 norm of the pose is considered converged
+            max_iterations (int): Value over which the pose is considered unreachable.
         
         Returns:
             int: 0 in case of succesfull termination, -1 in case of nonconvergence
@@ -75,7 +101,7 @@ class KinematicsSolver:
         
         # Newton-Raphson implementation
         # Initialization
-        self.__forwardKinematics(configuration=initial_guess)
+        self.__forwardPoseKinematics(configuration=initial_guess)
         error = target_pose - self.FKresult
         evaluated_jacobian = self.analytical_jacobian.subs(list(zip(self.joint_variables, initial_guess)))
         previous_guess = initial_guess
@@ -86,7 +112,7 @@ class KinematicsSolver:
             pseudoinverse = evaluated_jacobian.transpose()*((evaluated_jacobian*evaluated_jacobian.transpose()).inv())
             guess = previous_guess + pseudoinverse*error
 
-            self.__forwardKinematics(configuration=guess)
+            self.__forwardPoseKinematics(configuration=guess)
             error = target_pose - self.FKresult
             evaluated_jacobian = self.analytical_jacobian.subs(list(zip(self.joint_variables, guess)))
 
@@ -102,8 +128,70 @@ class KinematicsSolver:
         print(f"[KINEMATICS SOLVER] Desired pose: {target_pose}")
         print(f"[KINEMATICS SOLVER] Achieved pose: {self.FKresult}")
         return 0
+    
+    def __inversePositionKinematics(self, target_position: np.array, initial_guess: np.array = None, tolerance: float = 1e-6, max_iterations: int = 10000):
+        """Inverse position kinematics function
+
+        Args:
+            target_position (np.array): Desired end-effector pose to find joint configuration for
+            initial_guess (np.array): First guess of the joint configuration, a good guess means faster convergence
+            tolerance (float): Value under which the L2 norm of the pose is considered converged
+            max_iterations (int): Value over which the pose is considered unreachable.
+        
+        Returns:
+            int: 0 in case of succesfull termination, -1 in case of nonconvergence
+        """
+        # Check if analytical jacobian is provided
+        if self.analytical_jacobian is None:
+            print("[KINEMATICS SOLVER] Error: Please provide the analytical Jacobian")
+            return
+
+        # Initial guess
+        if initial_guess is None:
+            initial_guess = np.zeros(self.dofs)
+        
+        # Newton-Raphson implementation
+        # Initialization
+        self.__forwardPositionKinematics(configuration=initial_guess)
+        error = target_position - self.FKresult[0:3]
+        evaluated_jacobian = self.analytical_jacobian[0:3].subs(list(zip(self.joint_variables, initial_guess)))
+        previous_guess = initial_guess
+        counter = 0
+
+        # Running the algorithm
+        while np.linalg.norm(error) > tolerance:
+            pseudoinverse = evaluated_jacobian.transpose()*((evaluated_jacobian*evaluated_jacobian.transpose()).inv())
+            guess = previous_guess + pseudoinverse*error
+
+            self.__forwardPositionKinematics(configuration=guess)
+            error = target_position - self.FKresult[0:3]
+            evaluated_jacobian = self.analytical_jacobian[0:3].subs(list(zip(self.joint_variables, guess)))
+
+            previous_guess = guess
+            counter+=1
+            if counter > max_iterations:
+                return -1
+        
+        self.IKresult[0:3] = guess
+        
+        # Results statement
+        print(f"[KINEMATICS SOLVER] Inverse kinematics converged with error {error} in {counter} iterations")
+        print(f"[KINEMATICS SOLVER] Desired pose: {target_position}")
+        print(f"[KINEMATICS SOLVER] Achieved pose: {self.FKresult}")
+        return 0        
 
     def analyseWorkspace(self,  limits: np.array, steps: int=10, space: str='jointspace'):
+        """Run workspace analysis
+
+        Args:
+            limits (np.array): A Nx2 array specifying the [min, max] joint limits for all N joints
+            steps (int, optional): Number of steps between limits. Defaults to 10.
+            space (str, optional): Select joint space or cartesian space analysis. Defaults to 'jointspace'.
+
+        Returns:
+            np.array: Data array of Nx7 with for every checked pose on columns 0 to 6, and on column 6 a 0
+                        for nonreachable position and 1 for reachable position.
+        """
         if space == 'jointspace':
             # Use forward kinematics
             print("[KINEMATICS SOLVER] Workspace analysis in joint space using forward kinematics")
@@ -141,9 +229,43 @@ class KinematicsSolver:
             print("[KINEMATICS SOLVER] Workspace finished calculating in ", time_elapsed, " seconds")
             return data
 
-        elif space == 'cartesian':
+        elif space == 'cartesianposition':
             # Use inverse kinematics
-            print("[KINEMATICS SOLVER] Workspace analysis in cartesian space using inverse kinematics")
+            print("[KINEMATICS SOLVER] Workspace analysis in cartesian space using inverse position kinematics")
+            
+            # Build configuration space to explore
+            configuration_space = np.empty((3, steps))
+            
+            for i in range(3):
+                configuration_space[i,:]=np.linspace(limits[i,0], limits[i,1])
+            
+            position_combinations = itertools.product(*configuration_space)
+            num_combinations = steps ** 3
+            
+            # --- MAIN LOOP ---
+            start = time.time()
+            
+            # Create data array
+            data = np.empty((num_combinations, 4))
+            counter = 0
+            
+            print("[KINEMATICS SOLVER] Starting loop")
+            for checked_position in tqdm(position_combinations):
+                # Check if the pose gets a solution
+                res = self.__inversePositionKinematics(target_position=checked_position, initial_guess=np.zeros(self.dofs))
+                data[counter, 0,6] = self.IKresult
+                data[counter, 6] = res
+                counter+=1
+                
+            end = time.time()
+            
+            time_elapsed = end-start
+            print(f"[KINEMATICS SOLVER] Workspace finished calculating in {time_elapsed} seconds")
+            return data
+
+        elif space == 'cartesianpose':
+            # Use inverse kinematics
+            print("[KINEMATICS SOLVER] Workspace analysis in cartesian space using inverse pose kinematics")
             
             # Build configuration space to explore
             configuration_space = np.empty((6, steps))
@@ -152,12 +274,13 @@ class KinematicsSolver:
                 configuration_space[i,:]=np.linspace(limits[i,0], limits[i,1])
             
             pose_combinations = itertools.product(*configuration_space)
+            num_combinations = steps ** 6
             
             # --- MAIN LOOP ---
             start = time.time()
             
             # Create data array
-            data = np.empty((len(pose_combinations), 7))
+            data = np.empty((num_combinations, 7))
             counter = 0
             
             print("[KINEMATICS SOLVER] Starting loop")
@@ -173,4 +296,4 @@ class KinematicsSolver:
             time_elapsed = end-start
             print(f"[KINEMATICS SOLVER] Workspace finished calculating in {time_elapsed} seconds")
             return data
-        
+                

@@ -1,5 +1,4 @@
 import sympy as sp
-import numpy as np
 
 class Model:
     def __init__(self, transformation:sp.Expr, variables:tuple, parameters:list = None):
