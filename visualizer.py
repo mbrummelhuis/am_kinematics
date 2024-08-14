@@ -1,5 +1,17 @@
 import matplotlib.pyplot as plt
 from drone import DroneVisualModel
+import numpy as np
+
+class Visualizer:
+    def __init__(self, drone_body, drone_rotors):
+        self.drone_model = DroneVisualModel(body = drone_body, rotor=drone_rotors)
+        self.fig = plt.figure()
+        
+        self.ax = self.fig.add_subplot(1,1,1, projection='3d')
+        self.drone_model.drawDroneModel(self.ax)
+    
+    def plotConfig(self, configuration: np.array):
+        pass
 
 def visualise(data, body, rotor, space="jointspace"):
     if space == "jointspace":
@@ -43,3 +55,6 @@ def visualise(data, body, rotor, space="jointspace"):
         dronemodel.drawDroneModel(ax1)
 
         plt.show()  
+        
+    def show(self):
+        plt.show()

@@ -78,7 +78,7 @@ if __name__ == "__main__":
      
     # Set parameters
     T_be = T_be.subs([(L1, L1_length), (L2, L2_length), (L3, L3_length)])
-    3
+    
     AMparameters = dict({L1:L1_length,
                          L2:L2_length,
                          L3:L3_length})
@@ -97,7 +97,9 @@ if __name__ == "__main__":
                         [y_MIN, y_MAX],
                         [z_MIN, z_MAX]])
     
-    data = solver.analyseWorkspace(limits = ws_limits, steps=steps, space=mode)
+    #data = solver.solve(limits = ws_limits, steps=steps, space=mode)
+    joint_positions = solver.solveInverseKinematics(target_pos=np.array([0.0, 0.5, 0.0]))
+    print(joint)
     
     visualise(data, body=drone_body, rotor=drone_rotor, space=mode)
     

@@ -70,6 +70,8 @@ class KinematicsSolver:
             return
 
         joint_commands = list(zip(self.joint_variables, configuration))
+        print(self.joint_variables)
+        print(configuration)
 
         #Linear
         self.FKresult[0] = self.transformation_matrix[0,3].subs(joint_commands)
@@ -97,7 +99,7 @@ class KinematicsSolver:
 
         # Initial guess
         if initial_guess is None:
-            initial_guess = np.zeros(self.dofs, dtype=float)
+            initial_guess = np.zeros((self.dofs), dtype=float)
         
         # Newton-Raphson implementation
         # Initialization
@@ -148,10 +150,11 @@ class KinematicsSolver:
 
         # Initial guess
         if initial_guess is None:
-            initial_guess = np.zeros((self.dofs,1), dtype=float)
+            initial_guess = np.zeros((self.dofs), dtype=float)
         
         # Newton-Raphson implementation
         # Initialization
+        print(initial_guess)
         self.__forwardPositionKinematics(configuration=initial_guess)
         error = target_position - self.FKresult[0:3]
         evaluated_jacobian = self.analytical_jacobian[0:3,:].subs(list(zip(self.joint_variables, initial_guess)))
@@ -180,6 +183,29 @@ class KinematicsSolver:
         print(f"[KINEMATICS SOLVER] Achieved pose: {self.FKresult}")
         return 0        
 
+    def solveInverseKinematics(self, target_pos: np.array, initial_guess: np.array = None, full_pose: bool = False):
+        """Run IK once for a target pose
+
+        Args:
+            target_pos (np.array): Target pose (length 6) or position (length 3)
+            initial_guess (np.array, optional): Initial guess for the IK algorithm. Defaults to None.
+            full_pose (bool, optional): Choose full pose (True) or only position IK (False). Defaults to False.
+
+        Returns:
+            np.array: Array of length 3 in case of position and length 6 in case of full pose
+        """
+        # Position IK
+        if not full_pose:
+            if len(target_pos) > 3:
+                target_pos = target_pos[0:3]
+            self.__inversePositionKinematics(target_position=target_pos)
+            return self.IKresult[0:3]
+        
+        # Full pose IK
+        else:
+            self.__inversePoseKinematics(target_pose=target_pos)
+            return self.IKresult
+    
     def analyseWorkspace(self,  limits: np.array, steps: int=10, space: str='jointspace'):
         """Run workspace analysis
 
@@ -252,6 +278,8 @@ class KinematicsSolver:
             print("[KINEMATICS SOLVER] Starting loop")
             for position in position_combinations:
                 # Check if the pose gets a solution
+                if counter%100==0:
+                    print(f"IK calculation at {counter/num_combinations} %")
                 checked_position = np.array([position[0], position[1], position[2]], dtype=float)
                 res = self.__inversePositionKinematics(target_position=checked_position, initial_guess=np.zeros(self.dofs))
                 data[counter, 0:3] = self.IKresult
