@@ -1,8 +1,8 @@
 import sympy as sp
 import numpy as np
 
-from kinematics import KinematicsSolver
-from model import Model
+from workspace_analysis.kinematics import KinematicsSolver
+from workspace_analysis.model import Model
 from visualizer import visualise
 
 # Settings

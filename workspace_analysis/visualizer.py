@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from drone import DroneVisualModel
+from workspace_analysis.drone import DroneVisualModel
 import numpy as np
 
 class Visualizer:
