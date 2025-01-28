@@ -3,7 +3,7 @@ import numpy as np
 
 from workspace_analysis.kinematics import KinematicsSolver
 from workspace_analysis.model import Model
-from visualizer import visualise
+from workspace_analysis.visualizer import visualise
 
 # Settings
 L1_length = 0.110
