@@ -74,7 +74,7 @@ def workspace_analysis_jointspace():
     set_params = True
     if set_params:
         L1_length = 0.110
-        L2_length = 0.311
+        L2_length = 0.330
         L3_length = 0.273
         T_be = T_be.subs([(L1, L1_length), (L2, L2_length), (L3, L3_length)])
         print("Parameters set")
